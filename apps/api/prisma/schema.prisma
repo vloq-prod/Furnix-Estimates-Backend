@@ -1,0 +1,387 @@
+// Furnix — Estimate & Pricing Management
+// PostgreSQL + Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SALES_MANAGER
+  SALES_EXECUTIVE
+  VIEWER
+}
+
+enum HostingModel {
+  VLOQ_CLOUD
+  CLIENT_OWNED
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum AdjustmentType {
+  NONE
+  FIXED
+  PERCENT
+}
+
+enum AdjustmentScope {
+  ONE_TIME
+  RECURRING
+  BOTH
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  SENT
+  DUPLICATED
+  PDF_GENERATED
+  ADJUSTMENT_CHANGED
+  DELETED
+  RESTORED
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(120)
+  email        String   @unique @db.VarChar(180)
+  passwordHash String
+  role         UserRole @default(SALES_EXECUTIVE)
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  estimatesCreated Estimate[]         @relation("EstimateCreatedBy")
+  estimatesUpdated Estimate[]         @relation("EstimateUpdatedBy")
+  modulesCreated   Module[]           @relation("ModuleCreatedBy")
+  modulesUpdated   Module[]           @relation("ModuleUpdatedBy")
+  termsCreated     TermsTemplate[]    @relation("TermsCreatedBy")
+  activities       EstimateActivity[]
+  revisions        EstimateRevision[]
+
+  @@index([role, isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ───────────────────────────── Module Master ─────────────────────────────
+
+/// Chargeable platform modules. Nothing here is hardcoded in application code;
+/// administrators add future modules through the Module Master screen.
+model Module {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique @db.VarChar(60)
+  name        String  @db.VarChar(150)
+  description String? @db.Text
+
+  /// Modules carry a one-time setup charge only. Per-user pricing is a separate
+  /// entity — see CompanySetting.monthlyPricePerUser and Estimate.userRate*.
+  cloudSetupFee      Decimal @default(0) @db.Decimal(14, 2)
+  selfHostedSetupFee Decimal @default(0) @db.Decimal(14, 2)
+
+  isActive Boolean @default(true)
+  sequence Int     @default(0)
+
+  createdById String? @db.Uuid
+  updatedById String? @db.Uuid
+  createdBy   User?   @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?   @relation("ModuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  estimateModules EstimateModule[]
+
+  @@index([isActive, deletedAt, sequence])
+  @@index([deletedAt])
+  @@map("modules")
+}
+
+// ───────────────────────────── Terms Master ─────────────────────────────
+
+model TermsTemplate {
+  id          String  @id @default(uuid()) @db.Uuid
+  title       String  @db.VarChar(200)
+  contentHtml String  @db.Text
+  version     String  @db.VarChar(30)
+  isActive    Boolean @default(true)
+  isDefault   Boolean @default(false)
+  sequence    Int     @default(0)
+
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("TermsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String? @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  settings CompanySetting[]
+
+  @@unique([title, version])
+  @@index([isActive, isDefault, deletedAt])
+  @@map("terms_templates")
+}
+
+// ───────────────────────────── Company settings ─────────────────────────────
+
+/// Singleton row (id = "default") holding issuer details and pricing defaults.
+model CompanySetting {
+  id           String  @id @default("default")
+  legalName    String  @db.VarChar(200)
+  brandName    String  @db.VarChar(120)
+  gstin        String? @db.VarChar(20)
+  addressLine1 String? @db.VarChar(200)
+  addressLine2 String? @db.VarChar(200)
+  city         String? @db.VarChar(100)
+  state        String? @db.VarChar(100)
+  postalCode   String? @db.VarChar(20)
+  country      String  @default("India") @db.VarChar(100)
+  email        String? @db.VarChar(180)
+  phone        String? @db.VarChar(30)
+  website      String? @db.VarChar(180)
+  logoUrl      String? @db.VarChar(400)
+
+  defaultGstPercent    Decimal @default(18.00) @db.Decimal(5, 2)
+  defaultValidityDays  Int     @default(30)
+  estimateNumberPrefix String  @default("FX/EST") @db.VarChar(20)
+
+  /// ── Platform user pricing ────────────────────────────────────────────────
+  /// Charged per user per month, independent of how many modules are selected.
+  /// Snapshotted onto each estimate so repricing here never rewrites history.
+  monthlyPricePerUser Decimal @default(0) @db.Decimal(14, 2)
+  userLineLabel       String  @default("Platform users") @db.VarChar(120)
+
+  bankName          String? @db.VarChar(150)
+  bankAccountNumber String? @db.VarChar(40)
+  bankIfsc          String? @db.VarChar(20)
+
+  defaultTermsTemplateId String?        @db.Uuid
+  defaultTermsTemplate   TermsTemplate? @relation(fields: [defaultTermsTemplateId], references: [id], onDelete: SetNull)
+
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+/// Per-fiscal-year counter. Incremented inside the estimate-creation transaction
+/// so two concurrent requests can never mint the same estimate number.
+model EstimateSequence {
+  fiscalYear String   @id @db.VarChar(9)
+  lastNumber Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@map("estimate_sequences")
+}
+
+// ───────────────────────────── Estimate ─────────────────────────────
+
+model Estimate {
+  id             String @id @default(uuid()) @db.Uuid
+  estimateNumber String @unique @db.VarChar(40)
+  fiscalYear     String @db.VarChar(9)
+
+  estimateDate DateTime @db.Date
+  validUntil   DateTime @db.Date
+
+  // Client
+  clientCompanyName String  @db.VarChar(200)
+  contactPerson     String  @db.VarChar(150)
+  email             String  @db.VarChar(180)
+  mobile            String  @db.VarChar(20)
+  billingAddress    String  @db.Text
+  gstin             String? @db.VarChar(20)
+
+  // Commercials
+  hostingModel HostingModel   @default(VLOQ_CLOUD)
+  userCount    Int            @default(1)
+  gstPercent   Decimal        @default(18.00) @db.Decimal(5, 2)
+  status       EstimateStatus @default(DRAFT)
+
+  /// ── Platform user line ───────────────────────────────────────────────────
+  /// A standalone line item priced on head count alone. Module selection has no
+  /// effect on it, and it is charged even when no modules are taken.
+  userLineLabel         String   @default("Platform users") @db.VarChar(120)
+  /// Configured rate at the time of saving.
+  userRateSnapshot      Decimal  @default(0) @db.Decimal(14, 2)
+  /// Per-estimate override. Leaves company settings untouched.
+  userRateOverride      Decimal? @db.Decimal(14, 2)
+  /// What was actually charged per user, after override and hosting model.
+  appliedMonthlyPerUser Decimal  @default(0) @db.Decimal(14, 2)
+  userLineMonthlyAmount Decimal  @default(0) @db.Decimal(14, 2)
+
+  /// ── Internal only ────────────────────────────────────────────────────────
+  /// Persisted for audit. Stripped from every API response unless the caller
+  /// holds estimate:adjustment:view, and never rendered on client-facing output.
+  internalAdjustmentType  AdjustmentType  @default(NONE)
+  internalAdjustmentValue Decimal         @default(0) @db.Decimal(14, 2)
+  internalAdjustmentScope AdjustmentScope @default(ONE_TIME)
+  internalAdjustmentNote  String?         @db.Text
+  internalAdjustmentById  String?         @db.Uuid
+  internalAdjustmentAt    DateTime?
+
+  // Computed totals. Written by the pricing engine, never by hand.
+  oneTimeSubtotal         Decimal @default(0) @db.Decimal(14, 2)
+  recurringSubtotal       Decimal @default(0) @db.Decimal(14, 2)
+  oneTimeAdjustment       Decimal @default(0) @db.Decimal(14, 2)
+  recurringAdjustment     Decimal @default(0) @db.Decimal(14, 2)
+  taxableOneTime          Decimal @default(0) @db.Decimal(14, 2)
+  taxableRecurring        Decimal @default(0) @db.Decimal(14, 2)
+  gstOneTime              Decimal @default(0) @db.Decimal(14, 2)
+  gstRecurring            Decimal @default(0) @db.Decimal(14, 2)
+  netPayableOneTime       Decimal @default(0) @db.Decimal(14, 2)
+  monthlyRecurringPayable Decimal @default(0) @db.Decimal(14, 2)
+
+  notes           String? @db.Text
+  termsIntro      String? @db.Text
+  /// Frozen copy of module master prices + engine output at last save.
+  pricingSnapshot Json?
+
+  version    Int       @default(1)
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  rejectedAt DateTime?
+
+  createdById String? @db.Uuid
+  updatedById String? @db.Uuid
+  createdBy   User?   @relation("EstimateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?   @relation("EstimateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  duplicatedFromId String? @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  modules    EstimateModule[]
+  clauses    EstimateTermClause[]
+  revisions  EstimateRevision[]
+  activities EstimateActivity[]
+
+  @@index([status, deletedAt])
+  @@index([clientCompanyName])
+  @@index([estimateDate(sort: Desc)])
+  @@index([validUntil])
+  @@index([createdById])
+  @@index([deletedAt, createdAt(sort: Desc)])
+  @@map("estimates")
+}
+
+/// One priced module line. Every price column is a snapshot taken at save time,
+/// which is what keeps historical estimates stable when the Module Master moves.
+model EstimateModule {
+  id         String @id @default(uuid()) @db.Uuid
+  estimateId String @db.Uuid
+
+  moduleId          String? @db.Uuid
+  moduleCode        String  @db.VarChar(60)
+  moduleName        String  @db.VarChar(150)
+  moduleDescription String? @db.Text
+  sequence          Int     @default(0)
+
+  /// Every active module is written to the estimate, taken or not, so the
+  /// document can print the full catalogue and mark what the client chose.
+  /// Unselected rows price to zero and contribute nothing to any subtotal.
+  isSelected Boolean @default(false)
+
+  // Master snapshot
+  cloudSetupFee      Decimal @db.Decimal(14, 2)
+  selfHostedSetupFee Decimal @db.Decimal(14, 2)
+
+  // Per-estimate override (Module Master untouched)
+  overrideOneTimeFee Decimal? @db.Decimal(14, 2)
+  isOverridden       Boolean  @default(false)
+  userCount          Int      @default(0)
+
+  // Applied result
+  /// What this module would cost under the chosen hosting model, selected or not.
+  applicableOneTimeFee Decimal @db.Decimal(14, 2)
+  /// Zero unless isSelected.
+  appliedOneTimeFee    Decimal @db.Decimal(14, 2)
+  lineOneTimeAmount    Decimal @db.Decimal(14, 2)
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  module   Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@unique([estimateId, moduleCode])
+  @@index([estimateId, isSelected, sequence])
+  @@index([estimateId, sequence])
+  @@map("estimate_modules")
+}
+
+/// Terms clauses copied onto the estimate so they can be edited and reordered
+/// without touching the Terms Master.
+model EstimateTermClause {
+  id         String @id @default(uuid()) @db.Uuid
+  estimateId String @db.Uuid
+
+  sourceTemplateId String? @db.Uuid
+  title            String  @db.VarChar(200)
+  contentHtml      String  @db.Text
+  version          String? @db.VarChar(30)
+  sequence         Int     @default(0)
+  isCustom         Boolean @default(false)
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId, sequence])
+  @@map("estimate_term_clauses")
+}
+
+model EstimateRevision {
+  id            String  @id @default(uuid()) @db.Uuid
+  estimateId    String  @db.Uuid
+  version       Int
+  snapshot      Json
+  changeSummary String? @db.Text
+
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@unique([estimateId, version])
+  @@index([estimateId, createdAt(sort: Desc)])
+  @@map("estimate_revisions")
+}
+
+model EstimateActivity {
+  id         String         @id @default(uuid()) @db.Uuid
+  estimateId String         @db.Uuid
+  action     ActivityAction
+  message    String         @db.VarChar(400)
+  meta       Json?
+
+  actorId   String?  @db.Uuid
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId, createdAt(sort: Desc)])
+  @@map("estimate_activities")
+}

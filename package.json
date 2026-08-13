@@ -1,0 +1,18 @@
+{
+  "name": "furnix-estimates",
+  "private": true,
+  "version": "1.0.0",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "build:shared": "pnpm --filter @furnix/shared build",
+    "dev:api": "pnpm --filter @furnix/api dev",
+    "dev:web": "pnpm --filter @furnix/web dev",
+    "dev": "pnpm build:shared && pnpm -r --parallel dev",
+    "db:migrate": "pnpm --filter @furnix/api prisma:migrate",
+    "db:seed": "pnpm --filter @furnix/api prisma:seed",
+    "test": "pnpm --filter @furnix/shared test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
