@@ -57,15 +57,37 @@ export const pdfService = {
     const browser = await getBrowser();
     const page = await browser.newPage();
 
+    page.on('console', (msg) => console.log('Puppeteer page log:', msg.text()));
+    page.on('pageerror', (err) => console.error('Puppeteer page error:', err));
+    page.on('requestfailed', (req) =>
+      console.error('Puppeteer request failed:', req.url(), req.failure()?.errorText),
+    );
+
     try {
       await page.emulateMediaType('print');
+      await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
       await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
+
+      // Wait for all images to load and decode completely before printing to PDF
+      await page.evaluate(async () => {
+        const doc = (globalThis as any).document;
+        const images = Array.from(doc.querySelectorAll('img')) as any[];
+        await Promise.all(
+          images.map((img) => {
+            if (img.complete) return img.decode().catch(() => {});
+            return new Promise((resolve) => {
+              img.onload = () => img.decode().then(resolve).catch(resolve);
+              img.onerror = resolve;
+            });
+          }),
+        );
+      });
 
       const buffer = Buffer.from(
         await page.pdf({
           format: 'A4',
           printBackground: true,
-          preferCSSPageSize: true,
+          preferCSSPageSize: false,
           displayHeaderFooter: true,
           headerTemplate: '<div></div>',
           footerTemplate: `
@@ -75,7 +97,7 @@ export const pdfService = {
               <span>${escapeForTemplate(estimate.estimateNumber)}</span>
               <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
             </div>`,
-          margin: { top: '14mm', right: '12mm', bottom: '16mm', left: '12mm' },
+          margin: { top: '14mm', right: '0mm', bottom: '16mm', left: '0mm' },
         }),
       );
 

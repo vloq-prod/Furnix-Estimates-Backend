@@ -19,11 +19,12 @@ function brandMarkDataUri(): string {
   if (cachedBrandMark !== null) return cachedBrandMark;
   try {
     const file = path.join(__dirname, 'assets', 'furnix-mark.png');
-    cachedBrandMark = `data:image/png;base64,${readFileSync(file).toString('base64')}`;
+    const data = `data:image/png;base64,${readFileSync(file).toString('base64')}`;
+    cachedBrandMark = data;
+    return data;
   } catch {
-    cachedBrandMark = '';
+    return '';
   }
-  return cachedBrandMark;
 }
 
 let cachedSignature: string | null = null;
@@ -32,11 +33,12 @@ function signatureDataUri(): string {
   if (cachedSignature !== null) return cachedSignature;
   try {
     const file = path.join(__dirname, 'assets', 'vloq-signature.png');
-    cachedSignature = `data:image/png;base64,${readFileSync(file).toString('base64')}`;
+    const data = `data:image/png;base64,${readFileSync(file).toString('base64')}`;
+    cachedSignature = data;
+    return data;
   } catch {
-    cachedSignature = '';
+    return '';
   }
-  return cachedSignature;
 }
 
 const money = (value: unknown) => formatPaise(toPaise(String(value ?? 0)));
@@ -70,6 +72,7 @@ export function renderEstimateHtml(
   const isCloud = estimate.hostingModel === 'VLOQ_CLOUD';
   const hostingLabel = isCloud ? 'VLOQ Cloud Hosting' : 'Client-Owned Server';
   const hasRecurring = toPaise(String(estimate.taxableRecurring)) > 0;
+  const hasPage2 = Boolean(estimate.notes || estimate.clauses.length > 0);
 
   const issuerAddress = [
     settings.addressLine1,
@@ -126,13 +129,77 @@ export function renderEstimateHtml(
     )
     .join('');
 
+  const signoffHtml = `
+  <section class="signoff">
+    <div class="sign">
+      <span class="sign-eyebrow">For</span>
+      <b>${escape(settings.legalName)}</b>
+      <div class="sign-space">
+        <img src="${signatureDataUri()}" class="signature-img" alt="Signature" />
+      </div>
+      <div class="sign-rule"></div>
+      <span class="sign-role">Authorised signatory</span>
+      <div class="sign-fields">
+        <span>Name</span>
+        <span>Date</span>
+      </div>
+    </div>
+
+    <div class="sign accept">
+      <span class="sign-eyebrow">Accepted for</span>
+      <b>${escape(estimate.clientCompanyName)}</b>
+      <div class="sign-space">
+        <div class="seal-box"><span>Company seal</span></div>
+      </div>
+      <div class="sign-rule"></div>
+      <span class="sign-role">Authorised signatory</span>
+      <div class="sign-fields">
+        <span>Name</span>
+        <span>Date</span>
+      </div>
+    </div>
+  </section>`;
+
+  const colophonHtml = `
+  <footer class="colophon">
+    <span>${escape(estimate.estimateNumber)} · ${longDate(estimate.estimateDate)}</span>
+    <span>This is an estimate, not a tax invoice.</span>
+  </footer>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>${escape(estimate.estimateNumber)}</title>
 <style>
-  @page { size: A4; margin: 14mm 12mm 16mm; }
+  @page { size: A4; margin: 0; }
+
+  .page-wrapper {
+    width: 210mm;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .page-wrapper:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  .page {
+    width: 210mm;
+    min-height: 267mm;
+    padding-left: 12mm;
+    padding-right: 12mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .page-content {
+    flex: 1;
+  }
+  .page-footer {
+    margin-top: auto;
+  }
 
   :root {
     --ink:      #14110F;
@@ -168,7 +235,7 @@ export function renderEstimateHtml(
 
   /* ── Masthead ─────────────────────────────────────────── */
   .masthead { display: flex; justify-content: space-between; align-items: flex-start;
-              padding-bottom: 10px; border-bottom: 1.5pt solid var(--rule-bold); }
+              padding-bottom: 10px; border-bottom: 1.5pt solid var(--rule-bold); margin-top: 18px; }
   .brand-mark { display: flex; align-items: center; gap: 9px; line-height: 1; }
   .brand-logo { width: 30px; height: 30px; border-radius: 7px; display: block; }
   .brand-word { font-size: 20pt; font-weight: 800; letter-spacing: -0.03em; }
@@ -211,7 +278,7 @@ export function renderEstimateHtml(
   table.lines td.idx { width: 22px; color: var(--ink-mute); font-size: 7.5pt; padding-top: 11px; }
   .mod-name { display: block; font-weight: 600; font-size: 9.5pt; }
   .mod-desc { display: block; font-size: 7.5pt; color: var(--ink-soft); margin-top: 1.5px;
-              max-width: 62mm; }
+              max-width: 120mm; }
   .na { color: var(--ink-mute); }
 
   /* Full catalogue: taken modules read normally, untaken ones recede but stay legible. */
@@ -314,220 +381,210 @@ export function renderEstimateHtml(
 </head>
 <body>
 
-  <header class="masthead">
-    <div>
-      <div class="brand-mark">
-        <img src="${brandMarkDataUri()}" alt="" class="brand-logo" />
-        <span class="brand-word">${escape(settings.brandName)}</span>
-      </div>
-      <div class="brand-legal">
-        ${escape(settings.legalName)}<br />
-        ${issuerAddress}
-        ${settings.gstin ? `<br />GSTIN ${escape(settings.gstin)}` : ''}
-        ${settings.email ? `<br />${escape(settings.email)}` : ''}
-        ${settings.phone ? ` &nbsp;·&nbsp; ${escape(settings.phone)}` : ''}
-      </div>
-    </div>
-    <div class="doc-title">
-      <h1>Estimate</h1>
-      <div class="doc-no figure">${escape(estimate.estimateNumber)}</div>
-      <div class="doc-dates">
-        Issued <b>${longDate(estimate.estimateDate)}</b><br />
-        Valid until <b>${longDate(estimate.validUntil)}</b>
-      </div>
-    </div>
-  </header>
+  <!-- PAGE 1 -->
+  <div class="page-wrapper">
+    <div class="page">
+    <div class="page-content">
+      <header class="masthead">
+        <div>
+          <div class="brand-mark">
+            <img src="${brandMarkDataUri()}" alt="" class="brand-logo" />
+            <span class="brand-word">${escape(settings.brandName)}</span>
+          </div>
+          <div class="brand-legal">
+            ${escape(settings.legalName)}<br />
+            ${issuerAddress}
+            ${settings.gstin ? `<br />GSTIN ${escape(settings.gstin)}` : ''}
+            ${settings.email ? `<br />${escape(settings.email)}` : ''}
+            ${settings.phone ? ` &nbsp;·&nbsp; ${escape(settings.phone)}` : ''}
+          </div>
+        </div>
+        <div class="doc-title">
+          <h1>Estimate</h1>
+          <div class="doc-no figure">${escape(estimate.estimateNumber)}</div>
+          <div class="doc-dates">
+            Issued <b>${longDate(estimate.estimateDate)}</b><br />
+            Valid until <b>${longDate(estimate.validUntil)}</b>
+          </div>
+        </div>
+      </header>
 
-  <section class="parties">
-    <div class="party">
-      <h3>Prepared for</h3>
-      <div class="name">${escape(estimate.clientCompanyName)}</div>
-      <div class="line">${escape(estimate.contactPerson)}</div>
-      <div class="line">${nl2br(estimate.billingAddress)}</div>
-      <div class="line">${escape(estimate.email)} &nbsp;·&nbsp; ${escape(estimate.mobile)}</div>
-      ${estimate.gstin ? `<div class="line">GSTIN ${escape(estimate.gstin)}</div>` : ''}
-    </div>
-    <div class="party facts">
-      <h3>Engagement</h3>
-      <dl style="margin:0">
-        <div class="fact"><dt>Deployment</dt><dd>${hostingLabel}</dd></div>
-        <div class="fact"><dt>Modules</dt><dd class="figure">${includedCount}</dd></div>
-        <div class="fact"><dt>Users</dt><dd class="figure">${estimate.userCount}</dd></div>
-      </dl>
-    </div>
-  </section>
+      <section class="parties">
+        <div class="party">
+          <h3>Prepared for</h3>
+          <div class="name">${escape(estimate.clientCompanyName)}</div>
+          <div class="line">${escape(estimate.contactPerson)}</div>
+          <div class="line">${nl2br(estimate.billingAddress)}</div>
+          <div class="line">${escape(estimate.email)} &nbsp;·&nbsp; ${escape(estimate.mobile)}</div>
+          ${estimate.gstin ? `<div class="line">GSTIN ${escape(estimate.gstin)}</div>` : ''}
+        </div>
+        <div class="party facts">
+          <h3>Engagement</h3>
+          <dl style="margin:0">
+            <div class="fact"><dt>Deployment</dt><dd>${hostingLabel}</dd></div>
+            <div class="fact"><dt>Modules</dt><dd class="figure">${includedCount}</dd></div>
+            <div class="fact"><dt>Users</dt><dd class="figure">${estimate.userCount}</dd></div>
+          </dl>
+        </div>
+      </section>
 
-  <div class="section-head">
-    <h2>Modules &amp; Pricing</h2><div class="rule"></div>
+      <div class="section-head">
+        <h2>Modules &amp; Pricing</h2><div class="rule"></div>
+      </div>
+
+      <table class="lines">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Module</th>
+            <th class="mark">Status</th>
+            <th class="num">Setup (one-time)</th>
+          </tr>
+        </thead>
+        <tbody>${moduleRows}</tbody>
+        <tfoot>
+          <tr>
+            <td></td>
+            <td class="foot-label">${includedCount} of ${estimate.modules.length} modules included</td>
+            <td></td>
+            <td class="num foot-total">${money(estimate.oneTimeSubtotal)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="section-head">
+        <h2>Platform Users</h2><div class="rule"></div>
+      </div>
+
+      <table class="lines users">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="num">Users</th>
+            <th class="num">Rate / user / month</th>
+            <th class="num">Monthly</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <span class="mod-name">${escape(estimate.userLineLabel)}</span>
+              <span class="mod-desc">Platform access charged per user per month. Independent of module selection.</span>
+            </td>
+            <td class="num">${estimate.userCount}</td>
+            <td class="num">${isCloud ? money(estimate.appliedMonthlyPerUser) : '<span class="na">—</span>'}</td>
+            <td class="num">${isCloud ? money(estimate.userLineMonthlyAmount) : '<span class="na">—</span>'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <section class="settle">
+        <div class="settle-left">
+          <div class="settle-card">
+            <header>How this is billed</header>
+            <div class="settle-body">
+              <p style="margin: 0 0 4px 0;">
+                ${isCloud
+                ? `Module setup is payable once, on acceptance. User charges are billed every month for ${estimate.userCount} user${estimate.userCount === 1 ? '' : 's'} and are not included in the one-time figure. Module selection does not affect the per-user rate. These are two separate settlements.`
+                : `You provide and manage the server. The amount below is payable once, on acceptance. There is no monthly per-user charge on this deployment. The user count is recorded for sizing only.`
+                }
+              </p>
+              ${settings.bankName ? `
+              <div class="settle-divider"></div>
+              <h4 style="margin: 0 0 5px 0; font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--ink);">Bank Details</h4>
+              <table class="bank-table">
+                <tr>
+                  <td class="label">Bank name</td>
+                  <td class="value">${escape(settings.bankName)}</td>
+                </tr>
+                <tr>
+                  <td class="label">Account number</td>
+                  <td class="value">${escape(settings.bankAccountNumber || '')}</td>
+                </tr>
+                <tr>
+                  <td class="label">IFSC code</td>
+                  <td class="value mono">${escape(settings.bankIfsc || '')}</td>
+                </tr>
+              </table>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="ledger">
+          <div class="ledger-block">
+            <header class="eyebrow">One-time charges</header>
+            <div class="ledger-row">
+              <span class="label">Taxable amount</span>
+              <span class="value num">${money(estimate.taxableOneTime)}</span>
+            </div>
+            <div class="ledger-row">
+              <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
+              <span class="value num">${money(estimate.gstOneTime)}</span>
+            </div>
+            <div class="ledger-total">
+              <span class="label">Net payable <span class="tax-note">(GST Included)</span></span>
+              <span class="value num">${money(estimate.netPayableOneTime)}</span>
+            </div>
+          </div>
+
+          ${hasRecurring
+          ? `<div class="ledger-block">
+            <header class="eyebrow">Monthly recurring charges</header>
+            <div class="ledger-row">
+              <span class="label">Taxable amount</span>
+              <span class="value num">${money(estimate.taxableRecurring)}</span>
+            </div>
+            <div class="ledger-row">
+              <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
+              <span class="value num">${money(estimate.gstRecurring)}</span>
+            </div>
+            <div class="ledger-total recurring">
+              <span class="label">Monthly payable <span class="tax-note">(GST Included)</span></span>
+              <span class="value num">${money(estimate.monthlyRecurringPayable)}
+                <span class="per-month">/mo</span></span>
+            </div>
+          </div>`
+          : ''
+        }
+        </div>
+      </section>
+    </div>
+
+    <!-- Page 1 Footer (only if there is no Page 2) -->
+    ${!hasPage2 ? `
+    <div class="page-footer">
+      ${signoffHtml}
+      ${colophonHtml}
+    </div>
+    ` : ''}
+    </div>
   </div>
 
-  <table class="lines">
-    <thead>
-      <tr>
-        <th></th>
-        <th>Module</th>
-        <th class="mark">Status</th>
-        <th class="num">Setup (one-time)</th>
-      </tr>
-    </thead>
-    <tbody>${moduleRows}</tbody>
-    <tfoot>
-      <tr>
-        <td></td>
-        <td class="foot-label">${includedCount} of ${estimate.modules.length} modules included</td>
-        <td></td>
-        <td class="num foot-total">${money(estimate.oneTimeSubtotal)}</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="section-head">
-    <h2>Platform Users</h2><div class="rule"></div>
+  <!-- PAGE 2 (only if hasPage2 is true) -->
+  ${hasPage2 ? `
+  <div class="page-wrapper">
+    <div class="page">
+    <div class="page-content">
+      ${estimate.notes ? `
+      <div class="notes" style="margin-top:0"><span class="eyebrow">Notes</span><br />${nl2br(estimate.notes)}</div>
+      ` : ''}
+      
+      ${estimate.clauses.length > 0 ? `
+      <section class="terms" style="margin-top:14px">
+        <div class="section-head"><h2>Terms &amp; Conditions</h2><div class="rule"></div></div>
+        ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${estimate.termsIntro}</div>` : ''}
+        <ol>${clauses}</ol>
+      </section>
+      ` : ''}
+    </div>
+      <div class="page-footer">
+        ${signoffHtml}
+        ${colophonHtml}
+      </div>
+    </div>
   </div>
-
-  <table class="lines users">
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th class="num">Users</th>
-        <th class="num">Rate / user / month</th>
-        <th class="num">Monthly</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>
-          <span class="mod-name">${escape(estimate.userLineLabel)}</span>
-          <span class="mod-desc">Platform access charged per user per month. Independent of module selection.</span>
-        </td>
-        <td class="num">${estimate.userCount}</td>
-        <td class="num">${isCloud ? money(estimate.appliedMonthlyPerUser) : '<span class="na">—</span>'}</td>
-        <td class="num">${isCloud ? money(estimate.userLineMonthlyAmount) : '<span class="na">—</span>'}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <section class="settle">
-    <div class="settle-left">
-      <div class="settle-card">
-        <header>How this is billed</header>
-        <div class="settle-body">
-          <p style="margin: 0 0 4px 0;">
-            ${isCloud
-            ? `Module setup is payable once, on acceptance. User charges are billed every month for ${estimate.userCount} user${estimate.userCount === 1 ? '' : 's'} and are not included in the one-time figure. Module selection does not affect the per-user rate. These are two separate settlements.`
-            : `You provide and manage the server. The amount below is payable once, on acceptance. There is no monthly per-user charge on this deployment. The user count is recorded for sizing only.`
-            }
-          </p>
-          ${settings.bankName ? `
-          <div class="settle-divider"></div>
-          <h4 style="margin: 0 0 5px 0; font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--ink);">Bank Details</h4>
-          <table class="bank-table">
-            <tr>
-              <td class="label">Bank name</td>
-              <td class="value">${escape(settings.bankName)}</td>
-            </tr>
-            <tr>
-              <td class="label">Account number</td>
-              <td class="value">${escape(settings.bankAccountNumber || '')}</td>
-            </tr>
-            <tr>
-              <td class="label">IFSC code</td>
-              <td class="value mono">${escape(settings.bankIfsc || '')}</td>
-            </tr>
-          </table>` : ''}
-        </div>
-      </div>
-    </div>
-
-    <div class="ledger">
-      <div class="ledger-block">
-        <header class="eyebrow">One-time charges</header>
-        <div class="ledger-row">
-          <span class="label">Taxable amount</span>
-          <span class="value num">${money(estimate.taxableOneTime)}</span>
-        </div>
-        <div class="ledger-row">
-          <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
-          <span class="value num">${money(estimate.gstOneTime)}</span>
-        </div>
-        <div class="ledger-total">
-          <span class="label">Net payable <span class="tax-note">(GST Included)</span></span>
-          <span class="value num">${money(estimate.netPayableOneTime)}</span>
-        </div>
-      </div>
-
-      ${hasRecurring
-      ? `<div class="ledger-block">
-        <header class="eyebrow">Monthly recurring charges</header>
-        <div class="ledger-row">
-          <span class="label">Taxable amount</span>
-          <span class="value num">${money(estimate.taxableRecurring)}</span>
-        </div>
-        <div class="ledger-row">
-          <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
-          <span class="value num">${money(estimate.gstRecurring)}</span>
-        </div>
-        <div class="ledger-total recurring">
-          <span class="label">Monthly payable <span class="tax-note">(GST Included)</span></span>
-          <span class="value num">${money(estimate.monthlyRecurringPayable)}
-            <span class="per-month">/mo</span></span>
-        </div>
-      </div>`
-      : ''
-    }
-    </div>
-  </section>
-
-  ${estimate.notes
-      ? `<div class="notes"><span class="eyebrow">Notes</span><br />${nl2br(estimate.notes)}</div>`
-      : ''
-    }
-
-  ${estimate.clauses.length > 0
-      ? `<div class="page-break"></div>
-    <section class="terms">
-      <div class="section-head"><h2>Terms &amp; Conditions</h2><div class="rule"></div></div>
-      ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${estimate.termsIntro}</div>` : ''}
-      <ol>${clauses}</ol>
-    </section>`
-      : ''
-    }
-
-  <section class="signoff">
-    <div class="sign">
-      <span class="sign-eyebrow">For</span>
-      <b>${escape(settings.legalName)}</b>
-      <div class="sign-space">
-        <img src="${signatureDataUri()}" class="signature-img" alt="Signature" />
-      </div>
-      <div class="sign-rule"></div>
-      <span class="sign-role">Authorised signatory</span>
-      <div class="sign-fields">
-        <span>Name</span>
-        <span>Date</span>
-      </div>
-    </div>
-
-    <div class="sign accept">
-      <span class="sign-eyebrow">Accepted for</span>
-      <b>${escape(estimate.clientCompanyName)}</b>
-      <div class="sign-space">
-        <div class="seal-box"><span>Company seal</span></div>
-      </div>
-      <div class="sign-rule"></div>
-      <span class="sign-role">Authorised signatory</span>
-      <div class="sign-fields">
-        <span>Name</span>
-        <span>Date</span>
-      </div>
-    </div>
-  </section>
-
-  <footer class="colophon">
-    <span>${escape(estimate.estimateNumber)} · Revision ${estimate.version} · ${longDate(estimate.estimateDate)}</span>
-    <span>This is an estimate, not a tax invoice.</span>
-  </footer>
+  ` : ''}
 
 </body>
-</html>`;
+</html>`;;
 }
