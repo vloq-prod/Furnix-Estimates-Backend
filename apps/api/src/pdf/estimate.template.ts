@@ -48,12 +48,14 @@ const longDate = (value: Date) =>
     new Date(value),
   );
 
-const escape = (value: string) =>
-  value.replace(/[&<>"']/g, (character) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
-  );
+const escape = (value: string | null | undefined) =>
+  value
+    ? value.replace(/[&<>"']/g, (character) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
+      )
+    : '';
 
-const nl2br = (value: string) => escape(value).replace(/\n/g, '<br />');
+const nl2br = (value: string | null | undefined) => escape(value).replace(/\n/g, '<br />');
 
 /**
  * Client-facing estimate document.
@@ -188,6 +190,8 @@ export function renderEstimateHtml(
   .page {
     width: 210mm;
     min-height: 267mm;
+    padding-top: 8mm;
+    padding-bottom: 8mm;
     padding-left: 12mm;
     padding-right: 12mm;
     display: flex;
@@ -208,6 +212,9 @@ export function renderEstimateHtml(
     --rule:     #E3DDD3;
     --rule-bold:#14110F;
     --gold:     #B4893A;
+    --gold-soft:#F5EBD8;
+    --gold-deep:#8A6725;
+    --line-soft:#F0ECE5;
     --paper:    #FFFFFF;
     --wash:     #FAF8F5;
   }
@@ -235,7 +242,7 @@ export function renderEstimateHtml(
 
   /* ── Masthead ─────────────────────────────────────────── */
   .masthead { display: flex; justify-content: space-between; align-items: flex-start;
-              padding-bottom: 10px; border-bottom: 1.5pt solid var(--rule-bold); margin-top: 18px; }
+              padding-bottom: 10px; border-bottom: 1.5pt solid var(--rule-bold); }
   .brand-mark { display: flex; align-items: center; gap: 9px; line-height: 1; }
   .brand-logo { width: 30px; height: 30px; border-radius: 7px; display: block; }
   .brand-word { font-size: 20pt; font-weight: 800; letter-spacing: -0.03em; }
@@ -248,22 +255,22 @@ export function renderEstimateHtml(
   .doc-dates b { color: var(--ink); font-weight: 600; }
 
   /* ── Parties ──────────────────────────────────────────── */
-  .parties { display: flex; gap: 0; margin-top: 14px; border: 0.75pt solid var(--rule); }
-  .party { flex: 1; padding: 10px 12px; }
+  .parties { display: flex; gap: 0; margin-top: 10px; border: 0.75pt solid var(--rule); }
+  .party { flex: 1; padding: 6px 12px; }
   .party + .party { border-left: 0.75pt solid var(--rule); }
   .party.facts { background: var(--wash); flex: 0 0 32%; }
   .party h3 { margin: 0 0 5px; font-size: 6.5pt; letter-spacing: 0.16em;
               text-transform: uppercase; color: var(--ink-mute); font-weight: 700; }
   .party .name { font-size: 10.5pt; font-weight: 700; letter-spacing: -0.01em; }
   .party .line { font-size: 8pt; color: var(--ink-soft); }
-  .fact { display: flex; justify-content: space-between; gap: 8px; padding: 2.5px 0;
+  .fact { display: flex; justify-content: space-between; gap: 8px; padding: 1.5px 0;
           font-size: 8pt; border-bottom: 0.5pt dotted var(--rule); }
   .fact:last-child { border-bottom: 0; }
   .fact dt { color: var(--ink-mute); }
   .fact dd { margin: 0; font-weight: 600; text-align: right; }
 
   /* ── Line items ───────────────────────────────────────── */
-  .section-head { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 7px; }
+  .section-head { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 5px; }
   .section-head h2 { margin: 0; font-size: 9pt; font-weight: 700; letter-spacing: 0.1em;
                      text-transform: uppercase; }
   .section-head .rule { flex: 1; height: 0.75pt; background: var(--rule); }
@@ -274,7 +281,7 @@ export function renderEstimateHtml(
     font-weight: 700; text-align: left; padding: 0 8px 6px; border-bottom: 1pt solid var(--rule-bold);
   }
   table.lines thead th.num, table.lines td.num { text-align: right; }
-  table.lines td { padding: 9px 8px; border-bottom: 0.5pt solid var(--rule); vertical-align: top; }
+  table.lines td { padding: 7px 8px; border-bottom: 0.5pt solid var(--rule); vertical-align: top; }
   table.lines td.idx { width: 22px; color: var(--ink-mute); font-size: 7.5pt; padding-top: 11px; }
   .mod-name { display: block; font-weight: 600; font-size: 9.5pt; }
   .mod-desc { display: block; font-size: 7.5pt; color: var(--ink-soft); margin-top: 1.5px;
@@ -282,15 +289,16 @@ export function renderEstimateHtml(
   .na { color: var(--ink-mute); }
 
   /* Full catalogue: taken modules read normally, untaken ones recede but stay legible. */
-  table.lines th.mark, table.lines td.mark { width: 74px; text-align: left; }
+  table.lines th.mark, table.lines td.mark { width: 95px; text-align: left; }
   table.lines tr.not-included td { color: var(--ink-mute); }
   table.lines tr.not-included .mod-name { font-weight: 500; }
   table.lines tr.is-included .mod-name { font-weight: 700; }
   table.lines tr.is-included td.num { font-weight: 700; }
   .pill { display: inline-block; padding: 1.5px 7px; border-radius: 100px;
-          font-size: 6.5pt; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+          font-size: 6.5pt; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+          white-space: nowrap; }
   .pill.yes { background: var(--gold-soft); color: var(--gold-deep); }
-  .pill.no  { background: #F1EFEA; color: var(--ink-mute); }
+  .pill.no  { background: var(--line-soft); color: var(--ink-mute); }
   table.lines tfoot td { border-top: 0.75pt solid var(--ink); border-bottom: 0;
                          padding-top: 8px; font-size: 8pt; }
   .foot-label { font-weight: 600; }
@@ -298,14 +306,14 @@ export function renderEstimateHtml(
   table.lines.users { margin-bottom: 4px; }
 
   /* ── Settlement ───────────────────────────────────────── */
-  .settle { display: flex; gap: 10px; margin-top: 14px; page-break-inside: avoid; }
+  .settle { display: flex; gap: 10px; margin-top: 10px; page-break-inside: avoid; }
   .settle-left { flex: 1; }
   .settle-card { border: 0.75pt solid var(--rule); background: var(--wash); }
-  .settle-card > header { padding: 5px 11px; background: var(--wash);
+  .settle-card > header { padding: 4px 11px; background: var(--wash);
                            border-bottom: 0.75pt solid var(--rule); font-size: 7pt;
                            letter-spacing: 0.12em; text-transform: uppercase;
                            font-weight: 700; color: var(--ink); }
-  .settle-body { padding: 9px 11px; font-size: 8pt; color: var(--ink-soft); line-height: 1.45; }
+  .settle-body { padding: 7px 11px; font-size: 8pt; color: var(--ink-soft); line-height: 1.45; }
   .settle-divider { border-top: 0.75pt solid var(--rule); margin: 9px 0 6px 0; }
   .bank-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
   .bank-table td { padding: 2.5px 0; border: 0; }
@@ -317,7 +325,7 @@ export function renderEstimateHtml(
   .ledger-block > header { padding: 5px 11px; background: var(--wash);
                            border-bottom: 0.75pt solid var(--rule); }
   .ledger-row { display: flex; justify-content: space-between; gap: 10px;
-                padding: 4.5px 11px; font-size: 8.5pt; }
+                padding: 3.5px 11px; font-size: 8.5pt; }
   .ledger-row .label { color: var(--ink-soft); }
   .ledger-row .value { font-weight: 600; }
   .ledger-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
@@ -415,7 +423,7 @@ export function renderEstimateHtml(
           <div class="name">${escape(estimate.clientCompanyName)}</div>
           <div class="line">${escape(estimate.contactPerson)}</div>
           <div class="line">${nl2br(estimate.billingAddress)}</div>
-          <div class="line">${escape(estimate.email)} &nbsp;·&nbsp; ${escape(estimate.mobile)}</div>
+          <div class="line">${[estimate.email, estimate.mobile].filter(Boolean).map(val => escape(val)).join(' &nbsp;·&nbsp; ')}</div>
           ${estimate.gstin ? `<div class="line">GSTIN ${escape(estimate.gstin)}</div>` : ''}
         </div>
         <div class="party facts">

@@ -91,13 +91,14 @@ export const pdfService = {
           displayHeaderFooter: true,
           headerTemplate: '<div></div>',
           footerTemplate: `
-            <div style="width:100%;padding:0 12mm;font-family:Inter,Arial,sans-serif;
+            <div style="width:100%;padding:0 12mm 2.5mm;font-family:Inter,Arial,sans-serif;
                         font-size:6.5pt;color:#8A8179;display:flex;
-                        justify-content:space-between;">
+                        justify-content:space-between;align-items:flex-end;
+                        height:16mm;box-sizing:border-box;">
               <span>${escapeForTemplate(estimate.estimateNumber)}</span>
               <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
             </div>`,
-          margin: { top: '14mm', right: '0mm', bottom: '16mm', left: '0mm' },
+          margin: { top: '0mm', right: '0mm', bottom: '16mm', left: '0mm' },
         }),
       );
 
