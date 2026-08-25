@@ -176,33 +176,27 @@ export function renderEstimateHtml(
 <style>
   @page { size: A4; margin: 0; }
 
-  .page-wrapper {
+  /* ── Page containers — mirrors preview's min-h-[297mm] p-[12mm] flex flex-col justify-between ── */
+  .page-1 {
     width: 210mm;
-    page-break-after: always;
-    break-after: page;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  .page-wrapper:last-child {
-    page-break-after: avoid;
-    break-after: avoid;
-  }
-  .page {
-    width: 210mm;
-    min-height: 267mm;
-    padding-top: 8mm;
-    padding-bottom: 8mm;
-    padding-left: 12mm;
-    padding-right: 12mm;
+    height: 297mm;
+    padding: 12mm;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
   }
-  .page-content {
-    flex: 1;
-  }
-  .page-footer {
-    margin-top: auto;
+  .page-2 {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    page-break-before: always;
+    break-before: page;
   }
 
   :root {
@@ -306,7 +300,15 @@ export function renderEstimateHtml(
   table.lines.users { margin-bottom: 4px; }
 
   /* ── Settlement ───────────────────────────────────────── */
-  .settle { display: flex; gap: 10px; margin-top: 10px; page-break-inside: avoid; }
+  .settle {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-before: avoid;
+    break-before: avoid;
+  }
   .settle-left { flex: 1; }
   .settle-card { border: 0.75pt solid var(--rule); background: var(--wash); }
   .settle-card > header { padding: 4px 11px; background: var(--wash);
@@ -322,17 +324,17 @@ export function renderEstimateHtml(
   .bank-table td.value.mono { font-family: monospace; }
   .ledger { flex: 0 0 78mm; }
   .ledger-block { border: 0.75pt solid var(--rule); margin-bottom: 8px; }
-  .ledger-block > header { padding: 5px 11px; background: var(--wash);
+  .ledger-block > header { padding: 4px 11px; background: var(--wash);
                            border-bottom: 0.75pt solid var(--rule); }
   .ledger-row { display: flex; justify-content: space-between; gap: 10px;
-                padding: 3.5px 11px; font-size: 8.5pt; }
+                padding: 2px 11px; font-size: 7.5pt; }
   .ledger-row .label { color: var(--ink-soft); }
   .ledger-row .value { font-weight: 600; }
   .ledger-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-                  padding: 8px 11px; border-top: 1pt solid var(--rule-bold); background: #fff; }
+                  padding: 6px 11px; border-top: 1pt solid var(--rule-bold); background: #fff; }
   .ledger-total .label { font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase;
                          font-weight: 700; }
-  .ledger-total .value { font-size: 13pt; font-weight: 800; letter-spacing: -0.02em; }
+  .ledger-total .value { font-size: 11pt; font-weight: 800; letter-spacing: -0.02em; }
   .ledger-total.recurring .value { color: var(--gold); }
   .per-month { font-size: 7pt; color: var(--ink-mute); font-weight: 600; }
   .tax-note { text-transform: none; font-weight: normal; font-size: 7.5pt; color: var(--ink-soft); letter-spacing: normal; margin-left: 4px; }
@@ -375,7 +377,7 @@ export function renderEstimateHtml(
   .sign-fields { display: flex; gap: 12px; margin-top: 9px; }
   .sign-fields span { flex: 1; font-size: 6.5pt; color: var(--ink-mute);
                       border-bottom: 0.5pt dotted var(--line); padding-bottom: 9px; }
-  .signoff { display: flex; justify-content: space-between; margin-top: 26px;
+  .signoff { display: flex; justify-content: space-between; margin-top: 16px;
              page-break-inside: avoid; }
   .sign { width: 74mm; page-break-inside: avoid; font-size: 7.5pt;
           color: var(--ink-soft); }
@@ -389,10 +391,9 @@ export function renderEstimateHtml(
 </head>
 <body>
 
-  <!-- PAGE 1 -->
-  <div class="page-wrapper">
-    <div class="page">
-    <div class="page-content">
+  <div class="page-1">
+    <!-- TOP: all main content -->
+    <div>
       <header class="masthead">
         <div>
           <div class="brand-mark">
@@ -501,18 +502,9 @@ export function renderEstimateHtml(
               <div class="settle-divider"></div>
               <h4 style="margin: 0 0 5px 0; font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--ink);">Bank Details</h4>
               <table class="bank-table">
-                <tr>
-                  <td class="label">Bank name</td>
-                  <td class="value">${escape(settings.bankName)}</td>
-                </tr>
-                <tr>
-                  <td class="label">Account number</td>
-                  <td class="value">${escape(settings.bankAccountNumber || '')}</td>
-                </tr>
-                <tr>
-                  <td class="label">IFSC code</td>
-                  <td class="value mono">${escape(settings.bankIfsc || '')}</td>
-                </tr>
+                <tr><td class="label">Bank name</td><td class="value">${escape(settings.bankName)}</td></tr>
+                <tr><td class="label">Account number</td><td class="value">${escape(settings.bankAccountNumber || '')}</td></tr>
+                <tr><td class="label">IFSC code</td><td class="value mono">${escape(settings.bankIfsc || '')}</td></tr>
               </table>` : ''}
             </div>
           </div>
@@ -521,77 +513,58 @@ export function renderEstimateHtml(
         <div class="ledger">
           <div class="ledger-block">
             <header class="eyebrow">One-time charges</header>
-            <div class="ledger-row">
-              <span class="label">Taxable amount</span>
-              <span class="value num">${money(estimate.taxableOneTime)}</span>
-            </div>
-            <div class="ledger-row">
-              <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
-              <span class="value num">${money(estimate.gstOneTime)}</span>
-            </div>
+            ${estimate.oneTimeSubtotal !== undefined ? `
+            <div class="ledger-row"><span class="label">Total amount</span><span class="value num">${money(estimate.oneTimeSubtotal)}</span></div>` : ''}
+            ${estimate.oneTimeSubtotal !== undefined && estimate.oneTimeAdjustment !== undefined && Number(estimate.oneTimeAdjustment) !== 0 ? `
+            <div class="ledger-row" style="color: var(--ink-mute); font-style: italic;"><span class="label">Discount</span><span class="value num">−${money(estimate.oneTimeAdjustment)}</span></div>` : ''}
+            <div class="ledger-row"><span class="label">Taxable amount</span><span class="value num">${money(estimate.taxableOneTime)}</span></div>
+            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstOneTime)}</span></div>
             <div class="ledger-total">
               <span class="label">Net payable <span class="tax-note">(GST Included)</span></span>
               <span class="value num">${money(estimate.netPayableOneTime)}</span>
             </div>
           </div>
 
-          ${hasRecurring
-          ? `<div class="ledger-block">
+          ${hasRecurring ? `<div class="ledger-block">
             <header class="eyebrow">Monthly recurring charges</header>
-            <div class="ledger-row">
-              <span class="label">Taxable amount</span>
-              <span class="value num">${money(estimate.taxableRecurring)}</span>
-            </div>
-            <div class="ledger-row">
-              <span class="label">GST (${Number(estimate.gstPercent)}%)</span>
-              <span class="value num">${money(estimate.gstRecurring)}</span>
-            </div>
+            ${estimate.recurringSubtotal !== undefined ? `
+            <div class="ledger-row"><span class="label">Total amount</span><span class="value num">${money(estimate.recurringSubtotal)}</span></div>` : ''}
+            ${estimate.recurringSubtotal !== undefined && estimate.recurringAdjustment !== undefined && Number(estimate.recurringAdjustment) !== 0 ? `
+            <div class="ledger-row" style="color: var(--ink-mute); font-style: italic;"><span class="label">Discount</span><span class="value num">−${money(estimate.recurringAdjustment)}</span></div>` : ''}
+            <div class="ledger-row"><span class="label">Taxable amount</span><span class="value num">${money(estimate.taxableRecurring)}</span></div>
+            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstRecurring)}</span></div>
             <div class="ledger-total recurring">
               <span class="label">Monthly payable <span class="tax-note">(GST Included)</span></span>
-              <span class="value num">${money(estimate.monthlyRecurringPayable)}
-                <span class="per-month">/mo</span></span>
+              <span class="value num">${money(estimate.monthlyRecurringPayable)}<span class="per-month">/mo</span></span>
             </div>
-          </div>`
-          : ''
-        }
+          </div>` : ''}
         </div>
       </section>
     </div>
 
-    <!-- Page 1 Footer (only if there is no Page 2) -->
-    ${!hasPage2 ? `
-    <div class="page-footer">
-      ${signoffHtml}
+    <!-- BOTTOM: footer (pushed to bottom by justify-content:space-between) -->
+    <div>
+      ${!hasPage2 ? signoffHtml : ''}
       ${colophonHtml}
-    </div>
-    ` : ''}
     </div>
   </div>
 
-  <!-- PAGE 2 (only if hasPage2 is true) -->
   ${hasPage2 ? `
-  <div class="page-wrapper">
-    <div class="page">
-    <div class="page-content">
-      ${estimate.notes ? `
-      <div class="notes" style="margin-top:0"><span class="eyebrow">Notes</span><br />${nl2br(estimate.notes)}</div>
-      ` : ''}
-      
+  <div class="page-2">
+    <div>
+      ${estimate.notes ? `<div class="notes" style="margin-top:0"><span class="eyebrow">Notes</span><br />${nl2br(estimate.notes)}</div>` : ''}
       ${estimate.clauses.length > 0 ? `
       <section class="terms" style="margin-top:14px">
         <div class="section-head"><h2>Terms &amp; Conditions</h2><div class="rule"></div></div>
         ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${estimate.termsIntro}</div>` : ''}
         <ol>${clauses}</ol>
-      </section>
-      ` : ''}
+      </section>` : ''}
     </div>
-      <div class="page-footer">
-        ${signoffHtml}
-        ${colophonHtml}
-      </div>
+    <div>
+      ${signoffHtml}
+      ${colophonHtml}
     </div>
-  </div>
-  ` : ''}
+  </div>` : ''}
 
 </body>
 </html>`;;
