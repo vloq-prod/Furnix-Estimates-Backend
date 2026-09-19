@@ -219,10 +219,19 @@ export function renderEstimateHtml(
 
   /* ── Settlement ───────────────────────────────────────── */
   .settle { display: flex; gap: 10px; margin-top: 14px; page-break-inside: avoid; }
-  .settle-note { flex: 1; font-size: 7.5pt; color: var(--ink-soft); padding: 10px 12px;
-                 background: var(--wash); border-left: 1.5pt solid var(--gold); }
-  .settle-note h4 { margin: 0 0 4px; font-size: 7pt; letter-spacing: 0.12em;
-                    text-transform: uppercase; color: var(--ink); }
+  .settle-left { flex: 1; }
+  .settle-card { border: 0.75pt solid var(--rule); background: var(--wash); }
+  .settle-card > header { padding: 5px 11px; background: var(--wash);
+                           border-bottom: 0.75pt solid var(--rule); font-size: 7pt;
+                           letter-spacing: 0.12em; text-transform: uppercase;
+                           font-weight: 700; color: var(--ink); }
+  .settle-body { padding: 9px 11px; font-size: 8pt; color: var(--ink-soft); line-height: 1.45; }
+  .settle-divider { border-top: 0.75pt solid var(--rule); margin: 9px 0 6px 0; }
+  .bank-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  .bank-table td { padding: 2.5px 0; border: 0; }
+  .bank-table td.label { color: var(--ink-soft); text-align: left; }
+  .bank-table td.value { font-weight: 600; text-align: right; color: var(--ink); }
+  .bank-table td.value.mono { font-family: monospace; }
   .ledger { flex: 0 0 78mm; }
   .ledger-block { border: 0.75pt solid var(--rule); margin-bottom: 8px; }
   .ledger-block > header { padding: 5px 11px; background: var(--wash);
@@ -279,6 +288,7 @@ export function renderEstimateHtml(
   .colophon { margin-top: 16px; padding-top: 7px; border-top: 0.5pt solid var(--rule);
               font-size: 6.5pt; color: var(--ink-mute); display: flex;
               justify-content: space-between; }
+  .page-break { page-break-before: always; break-before: page; }
 </style>
 </head>
 <body>
@@ -377,12 +387,35 @@ export function renderEstimateHtml(
   </table>
 
   <section class="settle">
-    <div class="settle-note">
-      <h4>How this is billed</h4>
-      ${isCloud
-      ? `Module setup is payable once, on acceptance. User charges are billed every month for ${estimate.userCount} user${estimate.userCount === 1 ? '' : 's'} and are not included in the one-time figure. Module selection does not affect the per-user rate. These are two separate settlements.`
-      : `You provide and manage the server. The amount below is payable once, on acceptance. There is no monthly per-user charge on this deployment. The user count is recorded for sizing only.`
-    }
+    <div class="settle-left">
+      <div class="settle-card">
+        <header>How this is billed</header>
+        <div class="settle-body">
+          <p style="margin: 0 0 4px 0;">
+            ${isCloud
+            ? `Module setup is payable once, on acceptance. User charges are billed every month for ${estimate.userCount} user${estimate.userCount === 1 ? '' : 's'} and are not included in the one-time figure. Module selection does not affect the per-user rate. These are two separate settlements.`
+            : `You provide and manage the server. The amount below is payable once, on acceptance. There is no monthly per-user charge on this deployment. The user count is recorded for sizing only.`
+            }
+          </p>
+          ${settings.bankName ? `
+          <div class="settle-divider"></div>
+          <h4 style="margin: 0 0 5px 0; font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--ink);">Bank Details</h4>
+          <table class="bank-table">
+            <tr>
+              <td class="label">Bank name</td>
+              <td class="value">${escape(settings.bankName)}</td>
+            </tr>
+            <tr>
+              <td class="label">Account number</td>
+              <td class="value">${escape(settings.bankAccountNumber || '')}</td>
+            </tr>
+            <tr>
+              <td class="label">IFSC code</td>
+              <td class="value mono">${escape(settings.bankIfsc || '')}</td>
+            </tr>
+          </table>` : ''}
+        </div>
+      </div>
     </div>
 
     <div class="ledger">
@@ -430,7 +463,8 @@ export function renderEstimateHtml(
     }
 
   ${estimate.clauses.length > 0
-      ? `<section class="terms">
+      ? `<div class="page-break"></div>
+    <section class="terms">
       <div class="section-head"><h2>Terms &amp; Conditions</h2><div class="rule"></div></div>
       ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${estimate.termsIntro}</div>` : ''}
       <ol>${clauses}</ol>
