@@ -518,9 +518,10 @@ export function renderEstimateHtml(
             ${estimate.oneTimeSubtotal !== undefined && estimate.oneTimeAdjustment !== undefined && Number(estimate.oneTimeAdjustment) !== 0 ? `
             <div class="ledger-row" style="color: var(--ink-mute); font-style: italic;"><span class="label">Discount</span><span class="value num">−${money(estimate.oneTimeAdjustment)}</span></div>` : ''}
             <div class="ledger-row"><span class="label">Taxable amount</span><span class="value num">${money(estimate.taxableOneTime)}</span></div>
-            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstOneTime)}</span></div>
+            ${Number(estimate.gstPercent) > 0 ? `
+            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstOneTime)}</span></div>` : ''}
             <div class="ledger-total">
-              <span class="label">Net payable <span class="tax-note">(GST Included)</span></span>
+              <span class="label">Net payable <span class="tax-note">${Number(estimate.gstPercent) > 0 ? '(GST Included)' : '(GST Excluded)'}</span></span>
               <span class="value num">${money(estimate.netPayableOneTime)}</span>
             </div>
           </div>
@@ -532,9 +533,10 @@ export function renderEstimateHtml(
             ${estimate.recurringSubtotal !== undefined && estimate.recurringAdjustment !== undefined && Number(estimate.recurringAdjustment) !== 0 ? `
             <div class="ledger-row" style="color: var(--ink-mute); font-style: italic;"><span class="label">Discount</span><span class="value num">−${money(estimate.recurringAdjustment)}</span></div>` : ''}
             <div class="ledger-row"><span class="label">Taxable amount</span><span class="value num">${money(estimate.taxableRecurring)}</span></div>
-            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstRecurring)}</span></div>
+            ${Number(estimate.gstPercent) > 0 ? `
+            <div class="ledger-row"><span class="label">GST (${Number(estimate.gstPercent)}%)</span><span class="value num">${money(estimate.gstRecurring)}</span></div>` : ''}
             <div class="ledger-total recurring">
-              <span class="label">Monthly payable <span class="tax-note">(GST Included)</span></span>
+              <span class="label">Monthly payable <span class="tax-note">${Number(estimate.gstPercent) > 0 ? '(GST Included)' : '(GST Excluded)'}</span></span>
               <span class="value num">${money(estimate.monthlyRecurringPayable)}<span class="per-month">/mo</span></span>
             </div>
           </div>` : ''}
@@ -567,5 +569,5 @@ export function renderEstimateHtml(
   </div>` : ''}
 
 </body>
-</html>`;;
+</html>`;
 }
