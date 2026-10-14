@@ -14,13 +14,20 @@ import type { EstimateWithRelations } from '../modules/estimates/estimate.serial
 let cachedInterCss: string | null = null;
 
 function resolveFontPath(filename: string): string {
-  const directPath = path.join(__dirname, 'assets', 'fonts', filename);
-  if (existsSync(directPath)) return directPath;
-  const srcPath = path.join(process.cwd(), 'src', 'pdf', 'assets', 'fonts', filename);
-  if (existsSync(srcPath)) return srcPath;
-  const distPath = path.join(process.cwd(), 'dist', 'pdf', 'assets', 'fonts', filename);
-  if (existsSync(distPath)) return distPath;
-  return directPath;
+  const candidates = [
+    path.join(__dirname, 'assets', 'fonts', filename),
+    path.join(__dirname, 'pdf', 'assets', 'fonts', filename),
+    path.join(__dirname, '..', 'assets', 'fonts', filename),
+    path.join(__dirname, '..', 'pdf', 'assets', 'fonts', filename),
+    path.join(process.cwd(), 'src', 'pdf', 'assets', 'fonts', filename),
+    path.join(process.cwd(), 'dist', 'pdf', 'assets', 'fonts', filename),
+    path.join(process.cwd(), 'apps', 'api', 'src', 'pdf', 'assets', 'fonts', filename),
+    path.join(process.cwd(), 'apps', 'api', 'dist', 'pdf', 'assets', 'fonts', filename),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return candidates[0] ?? '';
 }
 
 function interFontFacesCss(): string {
@@ -42,7 +49,7 @@ function interFontFacesCss(): string {
   font-style: normal;
   font-weight: ${weight};
   font-display: block;
-  src: url('data:font/truetype;charset=utf-8;base64,${base64}') format('truetype');
+  src: url('data:font/truetype;base64,${base64}') format('truetype');
 }`;
     });
 
@@ -100,9 +107,11 @@ const longDate = (value: Date) =>
 
 const escape = (value: string | null | undefined) =>
   value
-    ? value.replace(/[&<>"']/g, (character) =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
-      )
+    ? value
+        .replace(/[\u2010\u2011]/g, '-')
+        .replace(/[&<>"']/g, (character) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
+        )
     : '';
 
 const nl2br = (value: string | null | undefined) => escape(value).replace(/\n/g, '<br />');
@@ -280,7 +289,7 @@ export function renderEstimateHtml(
     background: var(--paper);
   }
 
-  .num, .figure { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+  .num, .figure { font-variant-numeric: tabular-nums; }
 
   .eyebrow {
     font-size: 6.5pt;
