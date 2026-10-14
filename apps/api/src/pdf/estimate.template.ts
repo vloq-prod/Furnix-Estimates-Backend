@@ -108,7 +108,15 @@ const longDate = (value: Date) =>
 const escape = (value: string | null | undefined) =>
   value
     ? value
-        .replace(/[\u2010\u2011]/g, '-')
+        .replace(/[\u00AD]/g, '')
+        .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
+        .replace(/\uFB00/g, 'ff')
+        .replace(/\uFB01/g, 'fi')
+        .replace(/\uFB02/g, 'fl')
+        .replace(/\uFB03/g, 'ffi')
+        .replace(/\uFB04/g, 'ffl')
+        .replace(/\uFB05/g, 'st')
+        .replace(/\uFB06/g, 'st')
         .replace(/[&<>"']/g, (character) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
         )
