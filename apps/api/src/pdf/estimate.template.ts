@@ -1,8 +1,58 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { CompanySetting } from '@prisma/client';
 import { formatPaise, toPaise } from '@furnix/shared';
 import type { EstimateWithRelations } from '../modules/estimates/estimate.serializer';
+
+/**
+ * Inter font files, inlined as base64 data URIs.
+ *
+ * Inlining the fonts ensures the PDF generation is 100% self-contained across
+ * local and production environments, without relying on OS-level fonts or external CDNs.
+ * The Inter font family natively supports Latin and currency symbols including the Indian Rupee symbol (₹).
+ */
+let cachedInterCss: string | null = null;
+
+function resolveFontPath(filename: string): string {
+  const directPath = path.join(__dirname, 'assets', 'fonts', filename);
+  if (existsSync(directPath)) return directPath;
+  const srcPath = path.join(process.cwd(), 'src', 'pdf', 'assets', 'fonts', filename);
+  if (existsSync(srcPath)) return srcPath;
+  const distPath = path.join(process.cwd(), 'dist', 'pdf', 'assets', 'fonts', filename);
+  if (existsSync(distPath)) return distPath;
+  return directPath;
+}
+
+function interFontFacesCss(): string {
+  if (cachedInterCss !== null) return cachedInterCss;
+  try {
+    const fontDefs = [
+      { weight: 400, file: 'Inter-Regular.ttf' },
+      { weight: 500, file: 'Inter-Medium.ttf' },
+      { weight: 600, file: 'Inter-SemiBold.ttf' },
+      { weight: 700, file: 'Inter-Bold.ttf' },
+      { weight: 800, file: 'Inter-ExtraBold.ttf' },
+    ];
+
+    const rules = fontDefs.map(({ weight, file }) => {
+      const fontPath = resolveFontPath(file);
+      const base64 = readFileSync(fontPath).toString('base64');
+      return `@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: ${weight};
+  font-display: block;
+  src: url('data:font/truetype;charset=utf-8;base64,${base64}') format('truetype');
+}`;
+    });
+
+    cachedInterCss = rules.join('\n');
+    return cachedInterCss;
+  } catch (error) {
+    console.error('Failed to load Inter font files:', error);
+    return '';
+  }
+}
 
 /**
  * The Furnix mark, inlined as a data URI.
@@ -176,6 +226,8 @@ export function renderEstimateHtml(
 <style>
   @page { size: A4; margin: 0; }
 
+  ${interFontFacesCss()}
+
   /* ── Page containers — mirrors preview's min-h-[297mm] p-[12mm] flex flex-col justify-between ── */
   .page-1 {
     width: 210mm;
@@ -215,9 +267,13 @@ export function renderEstimateHtml(
 
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
+  body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
   body {
     margin: 0;
-    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 9.5pt;
     line-height: 1.55;
     color: var(--ink);

@@ -68,9 +68,12 @@ export const pdfService = {
       await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
       await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
 
-      // Wait for all images to load and decode completely before printing to PDF
+      // Wait for fonts to be ready and all images to load and decode completely before printing to PDF
       await page.evaluate(async () => {
         const doc = (globalThis as any).document;
+        if (doc.fonts && doc.fonts.ready) {
+          await doc.fonts.ready;
+        }
         const images = Array.from(doc.querySelectorAll('img')) as any[];
         await Promise.all(
           images.map((img) => {
