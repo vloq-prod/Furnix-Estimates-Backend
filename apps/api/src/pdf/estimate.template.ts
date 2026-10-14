@@ -105,18 +105,22 @@ const longDate = (value: Date) =>
     new Date(value),
   );
 
+/** Replace Unicode characters that the bundled Inter TTF lacks glyphs for. */
+const normalizeUnicode = (value: string) =>
+  value
+    .replace(/[\u00AD]/g, '')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
+    .replace(/\uFB00/g, 'ff')
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\uFB03/g, 'ffi')
+    .replace(/\uFB04/g, 'ffl')
+    .replace(/\uFB05/g, 'st')
+    .replace(/\uFB06/g, 'st');
+
 const escape = (value: string | null | undefined) =>
   value
-    ? value
-        .replace(/[\u00AD]/g, '')
-        .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
-        .replace(/\uFB00/g, 'ff')
-        .replace(/\uFB01/g, 'fi')
-        .replace(/\uFB02/g, 'fl')
-        .replace(/\uFB03/g, 'ffi')
-        .replace(/\uFB04/g, 'ffl')
-        .replace(/\uFB05/g, 'st')
-        .replace(/\uFB06/g, 'st')
+    ? normalizeUnicode(value)
         .replace(/[&<>"']/g, (character) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character,
         )
@@ -192,7 +196,7 @@ export function renderEstimateHtml(
         <span class="clause-no">${String(index + 1).padStart(2, '0')}</span>
         <div>
           <h4>${escape(clause.title)}</h4>
-          <div class="clause-body">${clause.contentHtml}</div>
+          <div class="clause-body">${normalizeUnicode(clause.contentHtml)}</div>
         </div>
       </li>`,
     )
@@ -631,7 +635,7 @@ export function renderEstimateHtml(
       ${estimate.clauses.length > 0 ? `
       <section class="terms" style="margin-top:14px">
         <div class="section-head"><h2>Terms &amp; Conditions</h2><div class="rule"></div></div>
-        ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${estimate.termsIntro}</div>` : ''}
+        ${estimate.termsIntro ? `<div class="clause-body" style="margin-bottom:6px">${normalizeUnicode(estimate.termsIntro)}</div>` : ''}
         <ol>${clauses}</ol>
       </section>` : ''}
     </div>
