@@ -210,7 +210,7 @@ model Estimate {
   // Client
   clientCompanyName String  @db.VarChar(200)
   contactPerson     String  @db.VarChar(150)
-  email             String  @db.VarChar(180)
+  email             String? @db.VarChar(180)
   mobile            String  @db.VarChar(20)
   billingAddress    String  @db.Text
   gstin             String? @db.VarChar(20)

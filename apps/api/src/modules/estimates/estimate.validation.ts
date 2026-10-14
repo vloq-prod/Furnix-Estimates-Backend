@@ -52,7 +52,14 @@ const estimateBase = z.object({
 
   clientCompanyName: z.string().trim().min(2, 'Enter the client company name').max(200),
   contactPerson: z.string().trim().max(150),
-  email: z.string().trim().email('Enter a valid email address').max(180),
+  email: z
+    .string()
+    .trim()
+    .email('Enter a valid email address')
+    .max(180)
+    .nullable()
+    .optional()
+    .or(z.literal('')),
   mobile: z
     .string()
     .trim()

@@ -5,6 +5,7 @@
   "engines": { "node": ">=20.11" },
   "scripts": {
     "build:shared": "pnpm --filter @furnix/shared build",
+    "build": "pnpm build:shared && pnpm --filter @furnix/api build",
     "dev:api": "pnpm --filter @furnix/api dev",
     "dev:web": "pnpm --filter @furnix/web dev",
     "dev": "pnpm build:shared && pnpm -r --parallel dev",

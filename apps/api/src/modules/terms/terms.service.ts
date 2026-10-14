@@ -62,13 +62,30 @@ export const termsService = {
 
   async update(id: string, input: UpdateTermsInput, actorId: string) {
     await this.getById(id);
-    return prisma.termsTemplate.update({
-      where: { id },
-      data: {
-        ...input,
-        ...(input.contentHtml ? { contentHtml: sanitizeRichText(input.contentHtml) } : {}),
-        updatedById: actorId,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updatedTemplate = await tx.termsTemplate.update({
+        where: { id },
+        data: {
+          ...input,
+          ...(input.contentHtml ? { contentHtml: sanitizeRichText(input.contentHtml) } : {}),
+          updatedById: actorId,
+        },
+      });
+
+      // Update estimate clauses derived from this template that are NOT customized
+      await tx.estimateTermClause.updateMany({
+        where: {
+          sourceTemplateId: id,
+          isCustom: false,
+        },
+        data: {
+          title: updatedTemplate.title,
+          contentHtml: updatedTemplate.contentHtml,
+          version: updatedTemplate.version,
+        },
+      });
+
+      return updatedTemplate;
     });
   },
 
